@@ -142,7 +142,7 @@
 
   function createChart(ctx, label, color) {
     return new Chart(ctx, {
-      type: 'scatter',
+      type: 'line',
       data: {
         datasets: [{
           label: label,
@@ -151,7 +151,7 @@
           backgroundColor: color + "aa",
           pointRadius: 6,
           pointHoverRadius: 8,
-          showLine: false,
+          showLine: true,
         }]
       },
       options: {
@@ -255,14 +255,16 @@
       const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
       const blocchetti = d.quantity;
       const buoniTotali = blocchetti * 10;
-      const prezzo = d.price !== undefined ? Number(d.price).toFixed(2) : "-";
+      const prezzoTotale = d.price !== undefined ? (d.price * buoniTotali).toFixed(2) : "-";
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${dayOnly}</td>
         <td>${tipo}</td>
         <td>${blocchetti}</td>
         <td>${buoniTotali}</td>
-        <td>${prezzo}</td>
+        <td>${prezzoTotale}</td>
+
       `;
       tbody.appendChild(tr);
     });
