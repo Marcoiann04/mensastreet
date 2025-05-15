@@ -1,103 +1,65 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mercato Buoni Mensa - Firebase</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #f0f2f5; }
-  h1, h2 { text-align: center; }
-  #charts { display: flex; justify-content: space-around; flex-wrap: wrap; margin-bottom: 30px; }
-  canvas { background: white; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
-  #login-section, #input-section { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
-  #input-section { display: none; }
-  label { display: block; margin: 10px 0 5px; }
-  input, select { width: 100%; padding: 8px; box-sizing: border-box; }
-  button { margin-top: 15px; padding: 10px; width: 100%; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-  button:hover { background: #0056b3; }
-  .hidden { display: none; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-  th { background-color: #007bff; color: white; }
-  .btn-del { background: #dc3545; border: none; color: white; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
-  .btn-del:hover { background: #a71d2a; }
-</style>
+  <meta charset="UTF-8">
+  <title>Mercato Buoni Mensa</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+    h1 { text-align: center; }
+    #charts-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; }
+    canvas { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    #admin { max-width: 600px; margin: 40px auto; display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    label, input, select { display: block; margin: 10px 0; width: 100%; }
+    input[type="password"] { width: 200px; }
+    button { margin-top: 10px; padding: 10px; cursor: pointer; }
+    #login { text-align: center; margin-top: 40px; }
+    table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+  </style>
 </head>
 <body>
 
-<h1>Mercato Buoni Mensa</h1>
-
-<div id="charts">
-  <div>
-    <h2>Vendite</h2>
-    <canvas id="sellChart" width="400" height="250"></canvas>
-  </div>
-  <div>
-    <h2>Richieste</h2>
-    <canvas id="buyChart" width="400" height="250"></canvas>
-  </div>
+<h1>📈 Mercato Buoni Mensa</h1>
+<div id="charts-container">
+  <canvas id="salesChart" width="400" height="250"></canvas>
+  <canvas id="demandChart" width="400" height="250"></canvas>
 </div>
 
-<div id="login-section">
-  <h2>Accesso Area Riservata</h2>
-  <input type="password" id="password" placeholder="Inserisci password" />
-  <button id="loginBtn">Accedi</button>
-  <p id="loginMsg" style="color:red;"></p>
+<div id="login">
+  <input type="password" id="passwordInput" placeholder="Password">
+  <button onclick="checkPassword()">Accedi area riservata</button>
 </div>
 
-<div id="input-section">
-  <h2>Inserisci / Modifica Dati</h2>
-  <form id="dataForm">
-    <label>Tipo:</label>
+<div id="admin">
+  <h2>Gestione Transazioni</h2>
+  <label>Tipo:
     <select id="type">
-      <option value="sell">Vendo</option>
-      <option value="buy">Compro</option>
+      <option value="vendita">Vendita</option>
+      <option value="richiesta">Richiesta</option>
     </select>
-
-    <label>Numero blocchetti (1 blocchetto = 10 buoni):</label>
-    <input type="number" id="blocks" min="1" required />
-
-    <label>Prezzo:</label>
-    <input type="number" id="price" min="0" step="0.01" required />
-
-    <label>Tipo prezzo:</label>
+  </label>
+  <label>Quantità blocchetti: <input type="number" id="quantity"></label>
+  <label>Prezzo: <input type="number" id="price"></label>
+  <label>Tipo prezzo:
     <select id="priceType">
-      <option value="total">Prezzo totale</option>
-      <option value="partial">Prezzo parziale (per buono)</option>
+      <option value="totale">Totale</option>
+      <option value="parziale">Parziale</option>
     </select>
-
-    <input type="hidden" id="editId" />
-
-    <button type="submit">Salva</button>
-  </form>
-
-  <h3>Dati Inseriti</h3>
-  <table id="dataTable">
-    <thead>
-      <tr>
-        <th>Tipo</th>
-        <th>Blocchetti</th>
-        <th>Prezzo totale (€)</th>
-        <th>Prezzo unitario (€ per buono)</th>
-        <th>Azione</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <button id="logoutBtn" style="background:#6c757d; margin-top:15px;">Esci</button>
+  </label>
+  <button onclick="addTransaction()">Inserisci</button>
+  <table id="transactionTable"></table>
 </div>
 
 <script>
-  // Configura Firebase (metti i tuoi dati!)
+  // 🔧 CONFIGURAZIONE FIREBASE - SOSTITUISCI QUI
   const firebaseConfig = {
-    apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
-    authDomain: "mensa-ea014.firebaseapp.com",
-    projectId: "mensa-ea014",
-   storageBucket: "mensa-ea014.firebasestorage.app",
+ apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
+  authDomain: "mensa-ea014.firebaseapp.com",
+  projectId: "mensa-ea014",
+  storageBucket: "mensa-ea014.firebasestorage.app",
   messagingSenderId: "341027510429",
   appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
   measurementId: "G-9B5YYE6CK2"
@@ -105,182 +67,121 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Chart setup
-  const sellCtx = document.getElementById('sellChart').getContext('2d');
-  const buyCtx = document.getElementById('buyChart').getContext('2d');
-
-  let sellChart = new Chart(sellCtx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Prezzo medio vendita (€ per buono)',
-        data: [],
-        borderColor: 'red',
-        backgroundColor: 'rgba(255,0,0,0.2)',
-        fill: true,
-        tension: 0.2,
-      }]
-    },
-    options: {
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-
-  let buyChart = new Chart(buyCtx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Prezzo medio richiesta (€ per buono)',
-        data: [],
-        borderColor: 'green',
-        backgroundColor: 'rgba(0,128,0,0.2)',
-        fill: true,
-        tension: 0.2,
-      }]
-    },
-    options: {
-      scales: { y: { beginAtZero: true } }
-    }
-  });
-
-  // Accesso area riservata
-  const loginSection = document.getElementById('login-section');
-  const inputSection = document.getElementById('input-section');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginMsg = document.getElementById('loginMsg');
-
-  const password = 'duxdux';
-
-  loginBtn.onclick = () => {
-    const pass = document.getElementById('password').value;
-    if(pass === password){
-      loginSection.style.display = 'none';
-      inputSection.style.display = 'block';
-      loginMsg.textContent = '';
-      loadData();
+  const password = "ciao";
+  function checkPassword() {
+    const input = document.getElementById("passwordInput").value;
+    if (input === password) {
+      document.getElementById("admin").style.display = "block";
+      document.getElementById("login").style.display = "none";
+      loadTable();
     } else {
-      loginMsg.textContent = 'Password errata';
+      alert("Password errata");
     }
-  };
+  }
 
-  document.getElementById('logoutBtn').onclick = () => {
-    inputSection.style.display = 'none';
-    loginSection.style.display = 'block';
-    clearForm();
-  };
+  async function addTransaction() {
+    const type = document.getElementById("type").value;
+    const quantity = parseInt(document.getElementById("quantity").value);
+    const price = parseFloat(document.getElementById("price").value);
+    const priceType = document.getElementById("priceType").value;
 
-  // Carica dati da Firestore e aggiorna grafici + tabella
-  function loadData() {
-    db.collection('transactions').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
-      const sells = [];
-      const buys = [];
-      const sellsLabels = [];
-      const buysLabels = [];
-      const sellsData = [];
-      const buysData = [];
+    if (!quantity || !price) return alert("Inserisci tutti i campi");
 
-      const tableBody = document.querySelector('#dataTable tbody');
-      tableBody.innerHTML = '';
+    let unitPrice;
+    if (priceType === "totale") {
+      unitPrice = (price / quantity) / 10; // 1 blocchetto = 10 buoni
+    } else {
+      unitPrice = price / 10; // parziale per blocchetto
+    }
 
-      snapshot.forEach(doc => {
-        const d = doc.data();
-        const id = doc.id;
-        const pricePerBuono = d.priceType === 'partial' ? d.price : d.price * 10; // già convertito in salvataggio
-        const unitPrice = d.priceType === 'total' ? (d.price / (d.blocks*10)) : d.price;
+    await db.collection("transactions").add({
+      type,
+      quantity,
+      totalPrice: price,
+      unitPrice: parseFloat(unitPrice.toFixed(2)),
+      timestamp: new Date()
+    });
 
-        // Crea etichetta data oraria
-       const date = new Date(item.timestamp.seconds * 1000);
-const label = date.toLocaleDateString(); // mostra solo "gg/mm/aaaa"
+    loadData();
+    loadTable();
+  }
 
+  async function loadData() {
+    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
+    const sales = [];
+    const demand = [];
+    const labels = [];
 
-        // Inserisci in tabella
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${d.type}</td>
-          <td>${d.blocks}</td>
-          <td>${(unitPrice * d.blocks * 10).toFixed(2)}</td>
-          <td>${unitPrice.toFixed(2)}</td>
-          <td>
-            <button class="btn-del" onclick="deleteData('${id}')">Elimina</button>
-          </td>
-        `;
-        tableBody.appendChild(tr);
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const date = new Date(data.timestamp.seconds * 1000).toLocaleDateString();
+      if (!labels.includes(date)) labels.push(date);
+      if (data.type === "vendita") sales.push({ x: date, y: data.unitPrice });
+      if (data.type === "richiesta") demand.push({ x: date, y: data.unitPrice });
+    });
 
-        if(d.type === 'sell'){
-          sells.push({label, value: unitPrice});
-        } else {
-          buys.push({label, value: unitPrice});
-        }
-      });
+    salesChart.data.labels = labels;
+    salesChart.data.datasets[0].data = sales;
+    salesChart.update();
 
-      // Ordina per tempo
-      sells.sort((a,b) => new Date(a.label) - new Date(b.label));
-      buys.sort((a,b) => new Date(a.label) - new Date(b.label));
+    demandChart.data.labels = labels;
+    demandChart.data.datasets[0].data = demand;
+    demandChart.update();
+  }
 
-      // Aggiorna grafici
-      updateChart(sellChart, sells);
-      updateChart(buyChart, buys);
+  async function loadTable() {
+    const table = document.getElementById("transactionTable");
+    table.innerHTML = "<tr><th>Tipo</th><th>Q.tà</th><th>Prezzo</th><th>Azioni</th></tr>";
+    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${d.type}</td>
+        <td>${d.quantity}</td>
+        <td>€ ${d.totalPrice}</td>
+        <td><button onclick="deleteTransaction('${doc.id}')">Elimina</button></td>`;
+      table.appendChild(row);
     });
   }
 
-  function updateChart(chart, dataArray){
-    chart.data.labels = dataArray.map(d => d.label);
-    chart.data.datasets[0].data = dataArray.map(d => d.value);
-    chart.update();
+  async function deleteTransaction(id) {
+    await db.collection("transactions").doc(id).delete();
+    loadData();
+    loadTable();
   }
 
-  // Inserimento dati
-  const form = document.getElementById('dataForm');
-  form.onsubmit = async (e) => {
-    e.preventDefault();
+  // ChartJS
+  const salesChart = new Chart(document.getElementById("salesChart"), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Prezzo medio vendita (€ per buono)",
+        borderColor: "green",
+        data: [],
+        fill: false,
+        tension: 0.1
+      }]
+    }
+  });
 
-    const type = document.getElementById('type').value;
-    const blocks = parseInt(document.getElementById
-('blocks').value);
-const price = parseFloat(document.getElementById('price').value);
-const priceType = document.getElementById('priceType').value;
-const editId = document.getElementById('editId').value;
-    let totalPrice;
-if(priceType === 'partial'){
-  totalPrice = price * blocks;
-} else {
-  totalPrice = price;
-}
+  const demandChart = new Chart(document.getElementById("demandChart"), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Prezzo medio richiesta (€ per buono)",
+        borderColor: "red",
+        data: [],
+        fill: false,
+        tension: 0.1
+      }]
+    }
+  });
 
-const newData = {
-  type,
-  blocks,
-  price: totalPrice,
-  priceType,
-  timestamp: firebase.firestore.FieldValue.serverTimestamp()
-};
+  loadData();
+</script>
 
-try {
-  if(editId){
-    await db.collection('transactions').doc(editId).update(newData);
-  } else {
-    await db.collection('transactions').add(newData);
-  }
-  clearForm();
-} catch(err){
-  alert('Errore salvataggio: '+err.message);
-}
-};
-
-// Cancella dato
-async function deleteData(id){
-if(confirm('Sei sicuro di voler eliminare questo dato?')){
-await db.collection('transactions').doc(id).delete();
-}
-}
-
-function clearForm(){
-form.reset();
-document.getElementById('editId').value = '';
-}
-
-window.deleteData = deleteData; // per onclick nel pulsante eliminazione
-
-</script> </body> </html> 
+</body>
+</html>
