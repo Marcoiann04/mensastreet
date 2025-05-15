@@ -191,8 +191,9 @@
         const unitPrice = d.priceType === 'total' ? (d.price / (d.blocks*10)) : d.price;
 
         // Crea etichetta data oraria
-        const date = d.timestamp ? d.timestamp.toDate() : new Date();
-        const label = date.toLocaleString();
+       const date = new Date(item.timestamp.seconds * 1000);
+const label = date.toLocaleDateString(); // mostra solo "gg/mm/aaaa"
+
 
         // Inserisci in tabella
         const tr = document.createElement('tr');
