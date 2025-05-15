@@ -2,29 +2,126 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <title>Mercato Buoni Mensa</title>
+  <title>Domanda e Offerta Buoni Mensa</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
-    h1 { text-align: center; margin-bottom: 30px; }
-    #charts-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; margin-bottom: 40px; }
-    canvas { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 500px; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #fafafa;
+      color: #333;
+      padding: 10px 15px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 0.3em;
+      text-align: center;
+      color: #007bff;
+      user-select: none;
+    }
+    .charts-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 30px;
+      max-width: 900px;
+      width: 100%;
+      margin-bottom: 40px;
+    }
+    .chart-box {
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      padding: 15px 25px;
+      flex: 1 1 400px;
+      max-width: 450px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .chart-box h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    canvas {
+      max-width: 100%;
+      height: 320px !important;
+    }
+    table {
+      width: 100%;
+      max-width: 900px;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+      font-weight: 600;
+      user-select: none;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    @media (max-width: 600px) {
+      .charts-container {
+        flex-direction: column;
+        gap: 20px;
+      }
+      .chart-box {
+        max-width: 100%;
+      }
+      table, th, td {
+        font-size: 0.8rem;
+      }
+    }
   </style>
 </head>
 <body>
 
-<h1>📈 Mercato Buoni Mensa</h1>
+  <h1>Domanda e Offerta Buoni Mensa</h1>
 
-<div id="charts-container">
-  <canvas id="salesChart" width="500" height="300"></canvas>
-  <canvas id="demandChart" width="500" height="300"></canvas>
-</div>
+  <div class="charts-container">
+    <div class="chart-box">
+      <h2>Domanda</h2>
+      <canvas id="chartRichiesta"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2>Offerta</h2>
+      <canvas id="chartVendita"></canvas>
+    </div>
+  </div>
+
+  <table id="summaryTable">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Domanda (buoni)</th>
+        <th>Offerta (buoni)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3">Caricamento dati...</td></tr>
+    </tbody>
+  </table>
 
 <script>
-  // FIREBASE CONFIGURA QUI
+  // Configura Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
     authDomain: "mensa-ea014.firebaseapp.com",
@@ -37,96 +134,137 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  const salesChart = new Chart(document.getElementById("salesChart"), {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: "Prezzo medio vendita (€ per buono)",
-        borderColor: "green",
-        backgroundColor: "rgba(0,128,0,0.1)",
-        data: [],
-        fill: true,
-        tension: 0.2,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'day',
-            tooltipFormat: 'dd/MM/yyyy HH:mm',
-            displayFormats: { day: 'dd/MM/yyyy' }
-          },
-          title: { display: true, text: 'Data' },
-          ticks: { maxRotation: 0, autoSkipPadding: 15 }
-        },
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: 'Prezzo (€ per buono)' }
-        }
-      },
-      plugins: { legend: { display: true } }
-    }
-  });
+  // Funzione per raggruppare dati per giorno e tipo (vendita o richiesta)
+  function groupByDayAndType(data) {
+    const map = new Map();
+    data.forEach(d => {
+      const date = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      // Prendi solo data senza orario (yyyy-mm-dd)
+      const day = date.toISOString().split('T')[0];
 
-  const demandChart = new Chart(document.getElementById("demandChart"), {
-    type: 'line',
-    data: {
-      datasets: [{
-        label: "Prezzo medio richiesta (€ per buono)",
-        borderColor: "red",
-        backgroundColor: "rgba(255,0,0,0.1)",
-        data: [],
-        fill: true,
-        tension: 0.2,
-        pointRadius: 5,
-        pointHoverRadius: 7,
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'day',
-            tooltipFormat: 'dd/MM/yyyy HH:mm',
-            displayFormats: { day: 'dd/MM/yyyy' }
-          },
-          title: { display: true, text: 'Data' },
-          ticks: { maxRotation: 0, autoSkipPadding: 15 }
-        },
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: 'Prezzo (€ per buono)' }
-        }
+      if (!map.has(day)) map.set(day, { vendita: 0, richiesta: 0 });
+      const entry = map.get(day);
+      entry[d.type] += d.quantity * 10; // blocchetti * 10 buoni
+    });
+    return map;
+  }
+
+  // Setup ChartJS per grafici belli
+  let chartRichiesta, chartVendita;
+
+  function createChart(ctx, label, color) {
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: label,
+          data: [],
+          borderColor: color,
+          backgroundColor: color + "55",
+          fill: true,
+          tension: 0.25,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 3,
+        }]
       },
-      plugins: { legend: { display: true } }
-    }
-  });
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'day',
+              tooltipFormat: 'dd/MM/yyyy',
+              displayFormats: {
+                day: 'dd/MM'
+              }
+            },
+            grid: {
+              color: '#eee'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Numero buoni'
+            },
+            grid: {
+              color: '#eee'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { font: { size: 14 } }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      }
+    });
+  }
 
   async function loadData() {
-    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
+    const snapshot = await db.collection("transactions").orderBy("timestamp", "asc").get();
+    const docs = snapshot.docs.map(doc => doc.data());
 
-    const sales = [];
-    const demand = [];
+    const grouped = groupByDayAndType(docs);
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const dateObj = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-      if (data.type === "vendita") sales.push({ x: dateObj, y: data.unitPrice });
-      if (data.type === "richiesta") demand.push({ x: dateObj, y: data.unitPrice });
+    // Ordina le date
+    const dates = Array.from(grouped.keys()).sort();
+
+    // Prepara i dati per i grafici
+    const datiDomanda = [];
+    const datiOfferta = [];
+
+    dates.forEach(day => {
+      const entry = grouped.get(day);
+      datiDomanda.push({ x: day, y: entry.richiesta || 0 });
+      datiOfferta.push({ x: day, y: entry.vendita || 0 });
     });
 
-    salesChart.data.datasets[0].data = sales;
-    salesChart.update();
+    // Crea o aggiorna i grafici
+    if (!chartRichiesta) {
+      chartRichiesta = createChart(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
+      chartVendita = createChart(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
+    }
+    chartRichiesta.data.labels = dates;
+    chartRichiesta.data.datasets[0].data = datiDomanda;
+    chartRichiesta.update();
 
-    demandChart.data.datasets[0].data = demand;
-    demandChart.update();
+    chartVendita.data.labels = dates;
+    chartVendita.data.datasets[0].data = datiOfferta;
+    chartVendita.update();
+
+    // Aggiorna la tabella riassuntiva
+    const tbody = document.querySelector("#summaryTable tbody");
+    tbody.innerHTML = "";
+    if (dates.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3">Nessun dato disponibile</td></tr>`;
+      return;
+    }
+    dates.forEach(day => {
+      const e = grouped.get(day);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${day.split('-').reverse().join('/')}</td>
+        <td>${e.richiesta || 0}</td>
+        <td>${e.vendita || 0}</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 
   loadData();
@@ -134,3 +272,4 @@
 
 </body>
 </html>
+
