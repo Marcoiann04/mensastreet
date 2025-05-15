@@ -1,24 +1,58 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Test Supabase Buoni Mensa</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body { font-family: Arial,sans-serif; max-width: 600px; margin: 20px auto; }
-    label, select, input, button { width: 100%; margin: 6px 0; padding: 8px; }
-    button { background: #0070f3; color: white; border: none; cursor: pointer; }
-    button:hover { background: #0059c1; }
-    ul { padding-left: 20px; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mercato Buoni Mensa - Firebase</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f0f2f5; }
+  h1, h2 { text-align: center; }
+  #charts { display: flex; justify-content: space-around; flex-wrap: wrap; margin-bottom: 30px; }
+  canvas { background: white; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+  #login-section, #input-section { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+  #input-section { display: none; }
+  label { display: block; margin: 10px 0 5px; }
+  input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+  button { margin-top: 15px; padding: 10px; width: 100%; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  button:hover { background: #0056b3; }
+  .hidden { display: none; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+  th { background-color: #007bff; color: white; }
+  .btn-del { background: #dc3545; border: none; color: white; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+  .btn-del:hover { background: #a71d2a; }
+</style>
 </head>
 <body>
-  <h1>Buoni Mensa - Test Supabase</h1>
 
-  <form id="formInserimento">
-    <label>Tipo operazione:</label>
-    <select id="tipo" required>
+<h1>Mercato Buoni Mensa</h1>
+
+<div id="charts">
+  <div>
+    <h2>Vendite</h2>
+    <canvas id="sellChart" width="400" height="250"></canvas>
+  </div>
+  <div>
+    <h2>Richieste</h2>
+    <canvas id="buyChart" width="400" height="250"></canvas>
+  </div>
+</div>
+
+<div id="login-section">
+  <h2>Accesso Area Riservata</h2>
+  <input type="password" id="password" placeholder="Inserisci password" />
+  <button id="loginBtn">Accedi</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
+
+<div id="input-section">
+  <h2>Inserisci / Modifica Dati</h2>
+  <form id="dataForm">
+    <label>Tipo:</label>
+    <select id="type">
       <option value="sell">Vendo</option>
       <option value="buy">Compro</option>
     </select>
@@ -27,94 +61,225 @@
     <input type="number" id="blocks" min="1" required />
 
     <label>Prezzo:</label>
-    <input type="number" id="price" min="1" step="0.01" required />
+    <input type="number" id="price" min="0" step="0.01" required />
 
-    <label>Prezzo totale o parziale?</label>
-    <select id="tipoPrezzo" required>
-      <option value="totale">Prezzo totale</option>
-      <option value="parziale">Prezzo parziale (per singolo buono)</option>
+    <label>Tipo prezzo:</label>
+    <select id="priceType">
+      <option value="total">Prezzo totale</option>
+      <option value="partial">Prezzo parziale (per buono)</option>
     </select>
 
-    <button type="submit">Inserisci</button>
+    <input type="hidden" id="editId" />
+
+    <button type="submit">Salva</button>
   </form>
 
-  <h2>Dati attuali</h2>
-  <ul id="listaDati">Caricamento...</ul>
+  <h3>Dati Inseriti</h3>
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Blocchetti</th>
+        <th>Prezzo totale (€)</th>
+        <th>Prezzo unitario (€ per buono)</th>
+        <th>Azione</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-  <script>
-    // Sostituisci con i tuoi valori Supabase:
-    const supabaseUrl = 'https://bwvkdlvuvgtegwevcdgg.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3dmtkbHZ1dmd0ZWd3ZXZjZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyOTkyODksImV4cCI6MjA2Mjg3NTI4OX0.VTSNBvbB6Y8z1xO3h9j_Qa3P4on_fB4-XTENPNzK_Pg';
+  <button id="logoutBtn" style="background:#6c757d; margin-top:15px;">Esci</button>
+</div>
 
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+<script>
+  // Configura Firebase (metti i tuoi dati!)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
+    authDomain: "mensa-ea014.firebaseapp.com",
+    projectId: "mensa-ea014",
+   storageBucket: "mensa-ea014.firebasestorage.app",
+  messagingSenderId: "341027510429",
+  appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
+  measurementId: "G-9B5YYE6CK2"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    const form = document.getElementById('formInserimento');
-    const listaDati = document.getElementById('listaDati');
+  // Chart setup
+  const sellCtx = document.getElementById('sellChart').getContext('2d');
+  const buyCtx = document.getElementById('buyChart').getContext('2d');
 
-    async function caricaDati() {
-      listaDati.innerHTML = 'Caricamento...';
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('id', { ascending: true });
-      if (error) {
-        listaDati.innerHTML = 'Errore nel caricamento dati';
-        console.error(error);
-        return;
-      }
-      if (!data.length) {
-        listaDati.innerHTML = 'Nessun dato presente';
-        return;
-      }
-      listaDati.innerHTML = '';
-      data.forEach(d => {
-        listaDati.innerHTML += `<li><strong>ID ${d.id}</strong>: ${d.type} - blocchetti ${d.blocks} - prezzo totale €${d.price_total.toFixed(2)} - prezzo singolo €${d.unit_price.toFixed(2)}</li>`;
-      });
+  let sellChart = new Chart(sellCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Prezzo medio vendita (€ per buono)',
+        data: [],
+        borderColor: 'red',
+        backgroundColor: 'rgba(255,0,0,0.2)',
+        fill: true,
+        tension: 0.2,
+      }]
+    },
+    options: {
+      scales: { y: { beginAtZero: true } }
     }
+  });
 
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
+  let buyChart = new Chart(buyCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Prezzo medio richiesta (€ per buono)',
+        data: [],
+        borderColor: 'green',
+        backgroundColor: 'rgba(0,128,0,0.2)',
+        fill: true,
+        tension: 0.2,
+      }]
+    },
+    options: {
+      scales: { y: { beginAtZero: true } }
+    }
+  });
 
-      const tipo = document.getElementById('tipo').value;
-      const blocks = parseInt(document.getElementById('blocks').value);
-      const price = parseFloat(document.getElementById('price').value);
-      const tipoPrezzo = document.getElementById('tipoPrezzo').value;
+  // Accesso area riservata
+  const loginSection = document.getElementById('login-section');
+  const inputSection = document.getElementById('input-section');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginMsg = document.getElementById('loginMsg');
 
-      if (isNaN(blocks) || blocks < 1) {
-        alert('Inserisci un numero blocchetti valido.');
-        return;
-      }
-      if (isNaN(price) || price <= 0) {
-        alert('Inserisci un prezzo valido.');
-        return;
-      }
+  const password = 'ciao';
 
-      let price_total, unit_price;
+  loginBtn.onclick = () => {
+    const pass = document.getElementById('password').value;
+    if(pass === password){
+      loginSection.style.display = 'none';
+      inputSection.style.display = 'block';
+      loginMsg.textContent = '';
+      loadData();
+    } else {
+      loginMsg.textContent = 'Password errata';
+    }
+  };
 
-      if (tipoPrezzo === 'totale') {
-        price_total = price;
-        unit_price = price_total / (blocks * 10);
-      } else {
-        // prezzo parziale per singolo buono
-        unit_price = price;
-        price_total = unit_price * blocks * 10;
-      }
+  document.getElementById('logoutBtn').onclick = () => {
+    inputSection.style.display = 'none';
+    loginSection.style.display = 'block';
+    clearForm();
+  };
 
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert([{ type: tipo, blocks, price_total, unit_price }]);
+  // Carica dati da Firestore e aggiorna grafici + tabella
+  function loadData() {
+    db.collection('transactions').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+      const sells = [];
+      const buys = [];
+      const sellsLabels = [];
+      const buysLabels = [];
+      const sellsData = [];
+      const buysData = [];
 
-      if (error) {
-        alert('Errore inserimento dati');
-        console.error(error);
-        return;
-      }
-      alert('Dati inseriti con successo!');
-      form.reset();
-      caricaDati();
+      const tableBody = document.querySelector('#dataTable tbody');
+      tableBody.innerHTML = '';
+
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        const id = doc.id;
+        const pricePerBuono = d.priceType === 'partial' ? d.price : d.price * 10; // già convertito in salvataggio
+        const unitPrice = d.priceType === 'total' ? (d.price / (d.blocks*10)) : d.price;
+
+        // Crea etichetta data oraria
+        const date = d.timestamp ? d.timestamp.toDate() : new Date();
+        const label = date.toLocaleString();
+
+        // Inserisci in tabella
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${d.type}</td>
+          <td>${d.blocks}</td>
+          <td>${(unitPrice * d.blocks * 10).toFixed(2)}</td>
+          <td>${unitPrice.toFixed(2)}</td>
+          <td>
+            <button class="btn-del" onclick="deleteData('${id}')">Elimina</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+
+        if(d.type === 'sell'){
+          sells.push({label, value: unitPrice});
+        } else {
+          buys.push({label, value: unitPrice});
+        }
+      });
+
+      // Ordina per tempo
+      sells.sort((a,b) => new Date(a.label) - new Date(b.label));
+      buys.sort((a,b) => new Date(a.label) - new Date(b.label));
+
+      // Aggiorna grafici
+      updateChart(sellChart, sells);
+      updateChart(buyChart, buys);
     });
+  }
 
-    caricaDati();
-  </script>
-</body>
-</html>
+  function updateChart(chart, dataArray){
+    chart.data.labels = dataArray.map(d => d.label);
+    chart.data.datasets[0].data = dataArray.map(d => d.value);
+    chart.update();
+  }
+
+  // Inserimento dati
+  const form = document.getElementById('dataForm');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+
+    const type = document.getElementById('type').value;
+    const blocks = parseInt(document.getElementById
+('blocks').value);
+const price = parseFloat(document.getElementById('price').value);
+const priceType = document.getElementById('priceType').value;
+const editId = document.getElementById('editId').value;
+    let totalPrice;
+if(priceType === 'partial'){
+  totalPrice = price * blocks * 10;
+} else {
+  totalPrice = price;
+}
+
+const newData = {
+  type,
+  blocks,
+  price: totalPrice,
+  priceType,
+  timestamp: firebase.firestore.FieldValue.serverTimestamp()
+};
+
+try {
+  if(editId){
+    await db.collection('transactions').doc(editId).update(newData);
+  } else {
+    await db.collection('transactions').add(newData);
+  }
+  clearForm();
+} catch(err){
+  alert('Errore salvataggio: '+err.message);
+}
+};
+
+// Cancella dato
+async function deleteData(id){
+if(confirm('Sei sicuro di voler eliminare questo dato?')){
+await db.collection('transactions').doc(id).delete();
+}
+}
+
+function clearForm(){
+form.reset();
+document.getElementById('editId').value = '';
+}
+
+window.deleteData = deleteData; // per onclick nel pulsante eliminazione
+
+</script> </body> </html> 
