@@ -95,16 +95,16 @@
       <th>Tipo</th>
       <th>Blocchetti (x10 buoni)</th>
       <th>Buoni Totali</th>
+      <th>Prezzo per buono (€)</th>
       <th>Prezzo totale (€)</th>
     </tr>
   </thead>
   <tbody>
-    <tr><td colspan="5">Caricamento dati...</td></tr>
+    <tr><td colspan="6">Caricamento dati...</td></tr>
   </tbody>
 </table>
 
 <script>
-  // Firebase config (da te fornito)
   const firebaseConfig = {
     apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
     authDomain: "mensa-ea014.firebaseapp.com",
@@ -132,8 +132,8 @@
           fill: true,
           pointRadius: 6,
           pointHoverRadius: 9,
-          tension: 0.25,
-          showLine: true
+          tension: 0.3,
+          showLine: true,
         }]
       },
       options: {
@@ -154,14 +154,18 @@
           y: {
             beginAtZero: false,
             title: { display: true, text: 'Prezzo per buono (€)' },
-            grid: { color: '#eee' }
+            grid: { color: '#eee' },
+            min: 0
           }
         },
         plugins: {
           legend: { labels: { font: { size: 14 } } },
           tooltip: {
             callbacks: {
-              label: ctx => `Prezzo: €${ctx.parsed.y.toFixed(2)}`
+              label: ctx => {
+                const p = ctx.parsed.y;
+                return `Prezzo: €${p.toFixed(2)}`;
+              }
             }
           }
         }
@@ -176,58 +180,59 @@
     const datiRichiesta = [];
     const datiVendita = [];
 
+    // Prepara dati per i grafici e tabella
+    const tbody = document.querySelector("#tableEntries tbody");
+    tbody.innerHTML = '';
+
+    if(docs.length === 0){
+      tbody.innerHTML = '<tr><td colspan="6">Nessun dato disponibile</td></tr>';
+      return;
+    }
+
     docs.forEach(d => {
-      const ts = d.timestamp;
-      let dataObj;
-      if (ts.toDate) dataObj = ts.toDate();
-      else dataObj = new Date(ts);
+      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      const x = dateObj.getTime();
+      const blocchetti = d.quantity;
+      const buoniTotali = blocchetti * 10;
+      const prezzoPerBuono = d.price !== undefined ? d.price : 0;
+      const prezzoTotale = (prezzoPerBuono * buoniTotali).toFixed(2);
 
-      const x = dataObj.getTime();
-      const y = Number(d.price);
+      // Popola dati grafici
+      if (d.type === 'richiesta') {
+        datiRichiesta.push({ x, y: prezzoPerBuono });
+      } else if (d.type === 'vendita') {
+        datiVendita.push({ x, y: prezzoPerBuono });
+      }
 
-      if (d.type === 'richiesta') datiRichiesta.push({ x, y });
-      else if (d.type === 'vendita') datiVendita.push({ x, y });
+      // Formatta data gg/mm/aaaa
+      const dataFormattata = dateObj.toLocaleDateString('it-IT');
+
+      // Tipo in chiaro
+      const tipoChiaro = d.type === 'richiesta' ? 'Domanda' : (d.type === 'vendita' ? 'Offerta' : d.type);
+
+      // Riga tabella
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${dataFormattata}</td>
+        <td>${tipoChiaro}</td>
+        <td>${blocchetti}</td>
+        <td>${buoniTotali}</td>
+        <td>€${prezzoPerBuono.toFixed(2)}</td>
+        <td>€${prezzoTotale}</td>
+      `;
+      tbody.appendChild(tr);
     });
 
-    if (!chartRichiesta) {
+    // Crea o aggiorna grafici
+    if(!chartRichiesta){
       chartRichiesta = creaGrafico(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
       chartVendita = creaGrafico(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
     }
-
     chartRichiesta.data.datasets[0].data = datiRichiesta;
     chartRichiesta.update();
 
     chartVendita.data.datasets[0].data = datiVendita;
     chartVendita.update();
-
-    // Tabella dati
-    const tbody = document.querySelector('#tableEntries tbody');
-    tbody.innerHTML = '';
-    if (docs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5">Nessun dato disponibile</td></tr>`;
-      return;
-    }
-
-    docs.forEach(d => {
-      let dataObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
-      const dataFormattata = dataObj.toLocaleDateString('it-IT');
-
-      const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
-      const blocchetti = d.quantity;
-      const buoniTotali = blocchetti * 10;
-      const prezzoSingolo = Number(d.price);
-      const prezzoTotale = (prezzoSingolo * buoniTotali).toFixed(2);
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${dataFormattata}</td>
-        <td>${tipo}</td>
-        <td>${blocchetti}</td>
-        <td>${buoniTotali}</td>
-        <td>€ ${prezzoTotale}</td>
-      `;
-      tbody.appendChild(tr);
-    });
   }
 
   caricaDati();
