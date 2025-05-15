@@ -1,0 +1,166 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Buoni Mensa - Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2em; background: #f0f0f0; }
+    h1 { text-align: center; }
+    canvas { max-width: 800px; margin: 1em auto; display: block; background: white; padding: 1em; }
+    #login, #form { max-width: 400px; margin: 1em auto; background: white; padding: 1em; border-radius: 8px; }
+    input, button, select { margin: 0.5em 0; width: 100%; padding: 0.5em; }
+    table { width: 100%; max-width: 800px; margin: 2em auto; border-collapse: collapse; background: white; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
+    #form { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Mercato Buoni Mensa</h1>
+  <canvas id="offertaChart"></canvas>
+  <canvas id="domandaChart"></canvas>
+
+  <div id="login">
+    <input type="password" id="password" placeholder="Password"/>
+    <button onclick="checkPassword()">Accedi</button>
+  </div>
+
+  <div id="form">
+    <select id="tipo">
+      <option value="vendita">Vendo</option>
+      <option value="acquisto">Compro</option>
+    </select>
+    <input type="number" id="blocchetti" placeholder="Numero blocchetti" />
+    <input type="number" id="prezzo" placeholder="Prezzo totale (€)" />
+    <button onclick="aggiungi()">Aggiungi</button>
+    <button onclick="eliminaTutti()">Elimina Tutti</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Tipo</th><th>Blocchetti</th><th>Prezzo Totale</th><th>€/Buono</th><th>Elimina</th></tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
+
+<script>
+const supabase = supabase.createClient(
+  'https://bwvkdlvuvgtegwevcdgg.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3dmtkbHZ1dmd0ZWd3ZXZjZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyOTkyODksImV4cCI6MjA2Mjg3NTI4OX0.VTSNBvbB6Y8z1xO3h9j_Qa3P4on_fB4-XTENPNzK_Pg'
+);
+
+const BUONI_PER_BLOCCHETTO = 10;
+
+let offertaChart, domandaChart;
+
+function checkPassword() {
+  if (document.getElementById("password").value === "ciao") {
+    document.getElementById("form").style.display = "block";
+    document.getElementById("login").style.display = "none";
+  }
+}
+
+async function aggiungi() {
+  const tipo = document.getElementById("tipo").value;
+  const blocchetti = parseInt(document.getElementById("blocchetti").value);
+  const prezzo = parseFloat(document.getElementById("prezzo").value);
+  if (!blocchetti || !prezzo) return;
+
+  await supabase.from("transazioni").insert([{ tipo, blocchetti, prezzo }]);
+  carica();
+}
+
+async function elimina(id) {
+  await supabase.from("transazioni").delete().eq("id", id);
+  carica();
+}
+
+async function eliminaTutti() {
+  await supabase.from("transazioni").delete().neq("id", 0);
+  carica();
+}
+
+async function carica() {
+  const { data } = await supabase.from("transazioni").select("*").order("id", { ascending: true });
+  const offerta = [], domanda = [], offertaLabels = [], domandaLabels = [];
+
+  document.getElementById("lista").innerHTML = "";
+
+  data.forEach((tx, index) => {
+    const euroPerBuono = (tx.prezzo / (tx.blocchetti * BUONI_PER_BLOCCHETTO)).toFixed(2);
+    const row = `<tr>
+      <td>${tx.tipo}</td><td>${tx.blocchetti}</td><td>${tx.prezzo}</td><td>${euroPerBuono}</td>
+      <td><button onclick="elimina(${tx.id})">X</button></td></tr>`;
+    document.getElementById("lista").innerHTML += row;
+
+    if (tx.tipo === "vendita") {
+      offerta.push(parseFloat(euroPerBuono));
+      offertaLabels.push(index + 1);
+    } else {
+      domanda.push(parseFloat(euroPerBuono));
+      domandaLabels.push(index + 1);
+    }
+  });
+
+  if (offertaChart) offertaChart.destroy();
+  if (domandaChart) domandaChart.destroy();
+
+  const ctx1 = document.getElementById("offertaChart").getContext("2d");
+  const ctx2 = document.getElementById("domandaChart").getContext("2d");
+
+  offertaChart = new Chart(ctx1, {
+    type: "line",
+    data: {
+      labels: offertaLabels,
+      datasets: [
+        {
+          label: "Offerta € per buono",
+          data: offerta,
+          borderColor: "green",
+          fill: false,
+          tension: 0.2,
+        },
+        {
+          label: "Media Offerta",
+          data: Array(offerta.length).fill(offerta.reduce((a,b)=>a+b,0)/offerta.length || 0),
+          borderColor: "darkgreen",
+          borderDash: [5,5],
+          fill: false,
+          pointRadius: 0
+        }
+      ]
+    }
+  });
+
+  domandaChart = new Chart(ctx2, {
+    type: "line",
+    data: {
+      labels: domandaLabels,
+      datasets: [
+        {
+          label: "Domanda € per buono",
+          data: domanda,
+          borderColor: "blue",
+          fill: false,
+          tension: 0.2,
+        },
+        {
+          label: "Media Domanda",
+          data: Array(domanda.length).fill(domanda.reduce((a,b)=>a+b,0)/domanda.length || 0),
+          borderColor: "darkblue",
+          borderDash: [5,5],
+          fill: false,
+          pointRadius: 0
+        }
+      ]
+    }
+  });
+}
+
+carica();
+</script>
+</body>
+</html>
