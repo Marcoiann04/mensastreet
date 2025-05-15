@@ -62,6 +62,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       border-radius: 10px;
       overflow: hidden;
+      margin-bottom: 40px;
     }
     th, td {
       padding: 12px 15px;
@@ -107,16 +108,17 @@
     </div>
   </div>
 
-  <table id="summaryTable">
+  <table id="allEntriesTable">
     <thead>
       <tr>
         <th>Data</th>
-        <th>Domanda (buoni)</th>
-        <th>Offerta (buoni)</th>
+        <th>Tipo</th>
+        <th>Blocchetti (x10 buoni)</th>
+        <th>Buoni Totali</th>
       </tr>
     </thead>
     <tbody>
-      <tr><td colspan="3">Caricamento dati...</td></tr>
+      <tr><td colspan="4">Caricamento dati...</td></tr>
     </tbody>
   </table>
 
@@ -220,22 +222,22 @@
     const snapshot = await db.collection("transactions").orderBy("timestamp", "asc").get();
     const docs = snapshot.docs.map(doc => doc.data());
 
+    // Raggruppa per giorno per i grafici
     const grouped = groupByDayAndType(docs);
 
-    // Ordina le date
+    // Ordina le date per i grafici
     const dates = Array.from(grouped.keys()).sort();
 
-    // Prepara i dati per i grafici
+    // Prepara dati per i grafici
     const datiDomanda = [];
     const datiOfferta = [];
-
     dates.forEach(day => {
       const entry = grouped.get(day);
       datiDomanda.push({ x: day, y: entry.richiesta || 0 });
       datiOfferta.push({ x: day, y: entry.vendita || 0 });
     });
 
-    // Crea o aggiorna i grafici
+    // Crea o aggiorna grafici
     if (!chartRichiesta) {
       chartRichiesta = createChart(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
       chartVendita = createChart(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
@@ -248,20 +250,27 @@
     chartVendita.data.datasets[0].data = datiOfferta;
     chartVendita.update();
 
-    // Aggiorna la tabella riassuntiva
-    const tbody = document.querySelector("#summaryTable tbody");
+    // Tabella tutti i singoli inserimenti (data senza ora)
+    const tbody = document.querySelector("#allEntriesTable tbody");
     tbody.innerHTML = "";
-    if (dates.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3">Nessun dato disponibile</td></tr>`;
+
+    if (docs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4">Nessun dato disponibile</td></tr>`;
       return;
     }
-    dates.forEach(day => {
-      const e = grouped.get(day);
+
+    docs.forEach(d => {
+      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      const dayOnly = dateObj.toISOString().split('T')[0].split('-').reverse().join('/'); // gg/mm/aaaa
+      const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
+      const blocchetti = d.quantity;
+      const buoniTotali = blocchetti * 10;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${day.split('-').reverse().join('/')}</td>
-        <td>${e.richiesta || 0}</td>
-        <td>${e.vendita || 0}</td>
+        <td>${dayOnly}</td>
+        <td>${tipo}</td>
+        <td>${blocchetti}</td>
+        <td>${buoniTotali}</td>
       `;
       tbody.appendChild(tr);
     });
