@@ -1,122 +1,120 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Test Supabase Buoni Mensa</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; max-width: 600px; }
-  label, input, select, button { margin: 5px 0; display: block; width: 100%; }
-  input, select { padding: 8px; }
-  button { padding: 10px; background: #0070f3; color: white; border: none; cursor: pointer; }
-  button:hover { background: #0059c1; }
-  ul { padding-left: 20px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Test Supabase Buoni Mensa</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial,sans-serif; max-width: 600px; margin: 20px auto; }
+    label, select, input, button { width: 100%; margin: 6px 0; padding: 8px; }
+    button { background: #0070f3; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0059c1; }
+    ul { padding-left: 20px; }
+  </style>
 </head>
 <body>
+  <h1>Buoni Mensa - Test Supabase</h1>
 
-<h1>Test Supabase Buoni Mensa</h1>
+  <form id="formInserimento">
+    <label>Tipo operazione:</label>
+    <select id="tipo" required>
+      <option value="sell">Vendo</option>
+      <option value="buy">Compro</option>
+    </select>
 
-<form id="formInserimento">
-  <label>Tipo operazione:</label>
-  <select id="tipo" required>
-    <option value="sell">Vendo</option>
-    <option value="buy">Compro</option>
-  </select>
+    <label>Numero blocchetti (1 blocchetto = 10 buoni):</label>
+    <input type="number" id="blocks" min="1" required />
 
-  <label>Numero blocchetti (1 blocchetto = 10 buoni):</label>
-  <input type="number" id="blocks" min="1" required />
+    <label>Prezzo:</label>
+    <input type="number" id="price" min="1" step="0.01" required />
 
-  <label>Prezzo:</label>
-  <input type="number" id="price" min="1" step="0.01" required />
+    <label>Prezzo totale o parziale?</label>
+    <select id="tipoPrezzo" required>
+      <option value="totale">Prezzo totale</option>
+      <option value="parziale">Prezzo parziale (per singolo buono)</option>
+    </select>
 
-  <label>Prezzo totale o parziale?</label>
-  <select id="tipoPrezzo" required>
-    <option value="totale">Prezzo totale</option>
-    <option value="parziale">Prezzo parziale (per singolo buono)</option>
-  </select>
+    <button type="submit">Inserisci</button>
+  </form>
 
-  <button type="submit">Inserisci</button>
-</form>
+  <h2>Dati attuali</h2>
+  <ul id="listaDati">Caricamento...</ul>
 
-<h2>Dati registrati</h2>
-<ul id="listaDati"></ul>
+  <script>
+    // Sostituisci con i tuoi valori Supabase:
+    const supabaseUrl = 'https://bwvkdlvuvgtegwevcdgg.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3dmtkbHZ1dmd0ZWd3ZXZjZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyOTkyODksImV4cCI6MjA2Mjg3NTI4OX0.VTSNBvbB6Y8z1xO3h9j_Qa3P4on_fB4-XTENPNzK_Pg';
 
-<script>
-  // Configura qui i tuoi dati Supabase:
-  const supabaseUrl = 'https://bwvkdlvuvgtegwevcdgg.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3dmtkbHZ1dmd0ZWd3ZXZjZGdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyOTkyODksImV4cCI6MjA2Mjg3NTI4OX0.VTSNBvbB6Y8z1xO3h9j_Qa3P4on_fB4-XTENPNzK_Pg';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    const form = document.getElementById('formInserimento');
+    const listaDati = document.getElementById('listaDati');
 
-  const form = document.getElementById('formInserimento');
-  const listaDati = document.getElementById('listaDati');
-
-  async function caricaDati() {
-    const { data, error } = await supabase.from('transactions').select('*').order('id', { ascending: true });
-    if (error) {
-      console.error('Errore caricamento dati:', error);
-      listaDati.innerHTML = `<li>Errore caricamento dati</li>`;
-      return;
+    async function caricaDati() {
+      listaDati.innerHTML = 'Caricamento...';
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('id', { ascending: true });
+      if (error) {
+        listaDati.innerHTML = 'Errore nel caricamento dati';
+        console.error(error);
+        return;
+      }
+      if (!data.length) {
+        listaDati.innerHTML = 'Nessun dato presente';
+        return;
+      }
+      listaDati.innerHTML = '';
+      data.forEach(d => {
+        listaDati.innerHTML += `<li><strong>ID ${d.id}</strong>: ${d.type} - blocchetti ${d.blocks} - prezzo totale €${d.price_total.toFixed(2)} - prezzo singolo €${d.unit_price.toFixed(2)}</li>`;
+      });
     }
-    if (!data || data.length === 0) {
-      listaDati.innerHTML = `<li>Nessun dato presente</li>`;
-      return;
-    }
-    listaDati.innerHTML = '';
-    data.forEach(d => {
-      listaDati.innerHTML += `<li>ID:${d.id} - ${d.type} - blocchetti: ${d.blocks} - prezzo totale: ${d.price_total.toFixed(2)} € - prezzo unitario: ${d.unit_price.toFixed(2)} €</li>`;
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const tipo = document.getElementById('tipo').value;
+      const blocks = parseInt(document.getElementById('blocks').value);
+      const price = parseFloat(document.getElementById('price').value);
+      const tipoPrezzo = document.getElementById('tipoPrezzo').value;
+
+      if (isNaN(blocks) || blocks < 1) {
+        alert('Inserisci un numero blocchetti valido.');
+        return;
+      }
+      if (isNaN(price) || price <= 0) {
+        alert('Inserisci un prezzo valido.');
+        return;
+      }
+
+      let price_total, unit_price;
+
+      if (tipoPrezzo === 'totale') {
+        price_total = price;
+        unit_price = price_total / (blocks * 10);
+      } else {
+        // prezzo parziale per singolo buono
+        unit_price = price;
+        price_total = unit_price * blocks * 10;
+      }
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([{ type: tipo, blocks, price_total, unit_price }]);
+
+      if (error) {
+        alert('Errore inserimento dati');
+        console.error(error);
+        return;
+      }
+      alert('Dati inseriti con successo!');
+      form.reset();
+      caricaDati();
     });
-  }
 
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-
-    const tipo = document.getElementById('tipo').value;
-    const blocks = parseInt(document.getElementById('blocks').value);
-    const price = parseFloat(document.getElementById('price').value);
-    const tipoPrezzo = document.getElementById('tipoPrezzo').value;
-
-    if (isNaN(blocks) || blocks < 1) {
-      alert('Inserisci un numero di blocchetti valido.');
-      return;
-    }
-    if (isNaN(price) || price <= 0) {
-      alert('Inserisci un prezzo valido.');
-      return;
-    }
-
-    let price_total, unit_price;
-
-    if (tipoPrezzo === 'totale') {
-      price_total = price;
-      unit_price = price_total / (blocks * 10);
-    } else {
-      // parziale = prezzo per singolo buono
-      price_total = price * blocks * 10;
-      unit_price = price;
-    }
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert([{ type: tipo, blocks, price_total, unit_price }]);
-
-    if (error) {
-      console.error('Errore inserimento:', error);
-      alert('Errore durante l\'inserimento');
-      return;
-    }
-    console.log('Inserito:', data);
-    alert('Dati inseriti con successo');
-
-    form.reset();
     caricaDati();
-  });
-
-  // Carica dati all'avvio
-  caricaDati();
-</script>
-
+  </script>
 </body>
 </html>
