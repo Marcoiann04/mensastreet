@@ -149,9 +149,11 @@
           data: [],
           borderColor: color,
           backgroundColor: color + "aa",
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          showLine: true,
+        showLine: true,
+pointRadius: 3,
+pointHoverRadius: 6,
+tension: 0.3,  // per una linea più morbida
+
         }]
       },
       options: {
@@ -184,7 +186,8 @@
             beginAtZero: true,
             title: {
               display: true,
-              text: 'Numero buoni'
+              text: 'Prezzo per buono (€)'
+
             },
             grid: {
               color: '#eee'
@@ -200,7 +203,8 @@
             callbacks: {
               label: ctx => {
                 const p = ctx.raw;
-                return `Buoni: ${p.y}, Data: ${new Date(p.x).toLocaleDateString()}`;
+                return `Prezzo: €${p.y.toFixed(2)}, Data: ${new Date(p.x).toLocaleDateString()}`;
+
               }
             }
           }
@@ -221,7 +225,8 @@
       const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
       // Usa data completa (timestamp in ms)
       const x = dateObj.getTime();
-      const y = d.quantity * 10;
+    const y = d.price; // prezzo per singolo buono
+
       if (d.type === 'richiesta') {
         datiDomanda.push({x, y});
       } else if (d.type === 'vendita') {
