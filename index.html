@@ -1,4 +1,6 @@
+
 <!DOCTYPE html>
+
 <html lang="it">
 <head>
   <meta charset="UTF-8">
@@ -56,13 +58,13 @@
 <script>
   // 🔧 CONFIGURAZIONE FIREBASE - SOSTITUISCI QUI
   const firebaseConfig = {
-    apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
-    authDomain: "mensa-ea014.firebaseapp.com",
-    projectId: "mensa-ea014",
-    storageBucket: "mensa-ea014.firebasestorage.app",
-    messagingSenderId: "341027510429",
-    appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
-    measurementId: "G-9B5YYE6CK2"
+ apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
+  authDomain: "mensa-ea014.firebaseapp.com",
+  projectId: "mensa-ea014",
+  storageBucket: "mensa-ea014.firebasestorage.app",
+  messagingSenderId: "341027510429",
+  appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
+  measurementId: "G-9B5YYE6CK2"
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
@@ -106,44 +108,44 @@
     loadTable();
   }
 
-  async function loadData() {
-    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
-    const sales = [];
-    const demand = [];
-    const labelsSet = new Set();
+ async function loadData() {
+  const snapshot = await db.collection("transactions").orderBy("timestamp").get();
+  const sales = [];
+  const demand = [];
+  const labelsSet = new Set();
 
-    snapshot.forEach((doc, index) => {
-      const data = doc.data();
-      const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-      
-      // Calcola inizio giorno
-      const dayStart = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate());
+  snapshot.forEach((doc, index) => {
+    const data = doc.data();
+    // Trasforma timestamp Firestore in oggetto Date
+    const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
 
-      // Jitter: aggiunge ore per distanziare punti nello stesso giorno (0.5h, 1.5h, 2.5h, ...)
-      const jitterHours = (index % 24) + 0.5; 
-      const jitterDate = new Date(dayStart.getTime() + jitterHours * 3600 * 1000);
+    // Prendi solo la data (yyyy-mm-dd) per la label
+    const dayString = ts.toISOString().split('T')[0];
+    labelsSet.add(dayString);
 
-      // Label è solo la data (giorno/mese/anno) senza orario
-      const label = dayStart.toLocaleDateString();
+    // Crea una data con jitter orario per non sovrapporre punti
+    const baseDate = new Date(dayString);
+    const jitterHours = (index % 24) + 0.5; // es: 0.5h, 1.5h, 2.5h, ...
+    const jitterDate = new Date(baseDate.getTime() + jitterHours * 3600 * 1000);
 
-      labelsSet.add(label);
+    // Prepara punto dati con x=jitterDate (Date) e y=unitPrice
+    const point = { x: jitterDate, y: data.unitPrice };
 
-      const point = { x: jitterDate, y: data.unitPrice };
+    if (data.type === "vendita") sales.push(point);
+    if (data.type === "richiesta") demand.push(point);
+  });
 
-      if (data.type === "vendita") sales.push(point);
-      if (data.type === "richiesta") demand.push(point);
-    });
+  const labels = Array.from(labelsSet);
 
-    const labels = Array.from(labelsSet);
+  salesChart.data.labels = labels;
+  salesChart.data.datasets[0].data = sales;
+  salesChart.update();
 
-    salesChart.data.labels = labels;
-    salesChart.data.datasets[0].data = sales;
-    salesChart.update();
+  demandChart.data.labels = labels;
+  demandChart.data.datasets[0].data = demand;
+  demandChart.update();
+}
 
-    demandChart.data.labels = labels;
-    demandChart.data.datasets[0].data = demand;
-    demandChart.update();
-  }
 
   async function loadTable() {
     const table = document.getElementById("transactionTable");
@@ -177,35 +179,8 @@
         borderColor: "green",
         data: [],
         fill: false,
-        tension: 0.1,
-        parsing: false,
-        showLine: true,
-        pointRadius: 4,
+        tension: 0.1
       }]
-    },
-    options: {
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'day',
-            tooltipFormat: 'dd/MM/yyyy HH:mm',
-            displayFormats: {
-              day: 'dd/MM/yyyy'
-            }
-          },
-          title: {
-            display: true,
-            text: 'Data'
-          }
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'Prezzo (€ per buono)'
-          }
-        }
-      }
     }
   });
 
@@ -218,40 +193,13 @@
         borderColor: "red",
         data: [],
         fill: false,
-        tension: 0.1,
-        parsing: false,
-        showLine: true,
-        pointRadius: 4,
+        tension: 0.1
       }]
-   
-},
-options: {
-scales: {
-x: {
-type: 'time',
-time: {
-unit: 'day',
-tooltipFormat: 'dd/MM/yyyy HH:mm',
-displayFormats: {
-day: 'dd/MM/yyyy'
-}
-},
-title: {
-display: true,
-text: 'Data'
-}
-},
-y: {
-title: {
-display: true,
-text: 'Prezzo (€ per buono)'
-}
-}
-}
-}
-});
+    }
+  });
 
-loadData();
+  loadData();
 </script>
 
-</body> </html>
+</body>
+</html>
