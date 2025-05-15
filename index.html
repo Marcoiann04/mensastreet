@@ -1,130 +1,110 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <title>Domanda e Offerta Buoni Mensa</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      background: #fafafa;
-      color: #333;
-      padding: 10px 15px;
-      min-height: 100vh;
-      display: flex;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Domanda e Offerta Buoni Mensa</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background: #f8f9fa;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    color: #007bff;
+    margin-bottom: 1rem;
+  }
+  .charts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    max-width: 900px;
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+  .chart-container {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+    flex: 1 1 400px;
+    max-width: 450px;
+  }
+  canvas {
+    width: 100% !important;
+    height: 320px !important;
+  }
+  table {
+    width: 100%;
+    max-width: 900px;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+  }
+  th {
+    background: #007bff;
+    color: white;
+    user-select: none;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
+  @media (max-width: 600px) {
+    .charts {
       flex-direction: column;
-      align-items: center;
+      gap: 20px;
     }
-    h1 {
-      margin-bottom: 0.3em;
-      text-align: center;
-      color: #007bff;
-      user-select: none;
-    }
-    .charts-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 30px;
-      max-width: 900px;
-      width: 100%;
-      margin-bottom: 40px;
-    }
-    .chart-box {
-      background: white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      border-radius: 10px;
-      padding: 15px 25px;
-      flex: 1 1 400px;
-      max-width: 450px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .chart-box h2 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      color: #333;
-    }
-    canvas {
-      max-width: 100%;
-      height: 320px !important;
-    }
-    table {
-      width: 100%;
-      max-width: 900px;
-      border-collapse: collapse;
-      background: white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      border-radius: 10px;
-      overflow: hidden;
-      margin-bottom: 40px;
-    }
-    th, td {
-      padding: 12px 15px;
-      border-bottom: 1px solid #ddd;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-    th {
-      background-color: #007bff;
-      color: white;
-      font-weight: 600;
-      user-select: none;
-    }
-    tr:last-child td {
-      border-bottom: none;
-    }
-    @media (max-width: 600px) {
-      .charts-container {
-        flex-direction: column;
-        gap: 20px;
-      }
-      .chart-box {
-        max-width: 100%;
-      }
-      table, th, td {
-        font-size: 0.8rem;
-      }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
 
-  <h1>Domanda e Offerta Buoni Mensa</h1>
+<h1>Domanda e Offerta Buoni Mensa</h1>
 
-  <div class="charts-container">
-    <div class="chart-box">
-      <h2>Domanda</h2>
-      <canvas id="chartRichiesta"></canvas>
-    </div>
-    <div class="chart-box">
-      <h2>Offerta</h2>
-      <canvas id="chartVendita"></canvas>
-    </div>
+<div class="charts">
+  <div class="chart-container">
+    <h2>Domanda</h2>
+    <canvas id="chartRichiesta"></canvas>
   </div>
+  <div class="chart-container">
+    <h2>Offerta</h2>
+    <canvas id="chartVendita"></canvas>
+  </div>
+</div>
 
-  <table id="allEntriesTable">
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Tipo</th>
-        <th>Blocchetti (x10 buoni)</th>
-        <th>Buoni Totali</th>
-        <th>Prezzo totale (€)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td colspan="5">Caricamento dati...</td></tr>
-    </tbody>
-  </table>
+<table id="tableEntries">
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Tipo</th>
+      <th>Blocchetti (x10 buoni)</th>
+      <th>Buoni Totali</th>
+      <th>Prezzo totale (€)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="5">Caricamento dati...</td></tr>
+  </tbody>
+</table>
 
 <script>
-  // Configura Firebase
+  // Firebase config (da te fornito)
   const firebaseConfig = {
     apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
     authDomain: "mensa-ea014.firebaseapp.com",
@@ -134,25 +114,26 @@
     appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
     measurementId: "G-9B5YYE6CK2"
   };
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Setup ChartJS per grafici
   let chartRichiesta, chartVendita;
 
-  function createChart(ctx, label, color) {
+  function creaGrafico(ctx, label, colore) {
     return new Chart(ctx, {
       type: 'line',
       data: {
         datasets: [{
           label: label,
           data: [],
-          borderColor: color,
-          backgroundColor: color + "44",
-          pointRadius: 5,
-          pointHoverRadius: 8,
-          showLine: true,
-          tension: 0.3,
+          borderColor: colore,
+          backgroundColor: colore + '44',
+          fill: true,
+          pointRadius: 6,
+          pointHoverRadius: 9,
+          tension: 0.25,
+          showLine: true
         }]
       },
       options: {
@@ -164,45 +145,23 @@
             time: {
               unit: 'day',
               tooltipFormat: 'dd/MM/yyyy',
-              displayFormats: {
-                day: 'dd/MM'
-              }
+              displayFormats: { day: 'dd/MM' }
             },
-            title: {
-              display: true,
-              text: 'Data'
-            },
-            grid: {
-              color: '#eee'
-            },
-            ticks: {
-              maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: 10
-            }
+            title: { display: true, text: 'Data' },
+            grid: { color: '#eee' },
+            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
           },
           y: {
             beginAtZero: false,
-            title: {
-              display: true,
-              text: 'Prezzo per buono (€)'
-            },
-            grid: {
-              color: '#eee'
-            }
+            title: { display: true, text: 'Prezzo per buono (€)' },
+            grid: { color: '#eee' }
           }
         },
         plugins: {
-          legend: {
-            display: true,
-            labels: { font: { size: 14 } }
-          },
+          legend: { labels: { font: { size: 14 } } },
           tooltip: {
             callbacks: {
-              label: ctx => {
-                const p = ctx.raw;
-                return `Prezzo: €${p.y.toFixed(2)}, Data: ${new Date(p.x).toLocaleDateString()}`;
-              }
+              label: ctx => `Prezzo: €${ctx.parsed.y.toFixed(2)}`
             }
           }
         }
@@ -210,68 +169,69 @@
     });
   }
 
-  async function loadData() {
-    const snapshot = await db.collection("transactions").orderBy("timestamp", "asc").get();
+  async function caricaDati() {
+    const snapshot = await db.collection('transactions').orderBy('timestamp', 'asc').get();
     const docs = snapshot.docs.map(doc => doc.data());
 
-    const datiDomanda = [];
-    const datiOfferta = [];
+    const datiRichiesta = [];
+    const datiVendita = [];
 
     docs.forEach(d => {
-      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
-      const x = dateObj.getTime();
-      const y = d.price; // prezzo per singolo buono
+      const ts = d.timestamp;
+      let dataObj;
+      if (ts.toDate) dataObj = ts.toDate();
+      else dataObj = new Date(ts);
 
-      if (d.type === 'richiesta') {
-        datiDomanda.push({x, y});
-      } else if (d.type === 'vendita') {
-        datiOfferta.push({x, y});
-      }
+      const x = dataObj.getTime();
+      const y = Number(d.price);
+
+      if (d.type === 'richiesta') datiRichiesta.push({ x, y });
+      else if (d.type === 'vendita') datiVendita.push({ x, y });
     });
 
     if (!chartRichiesta) {
-      chartRichiesta = createChart(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
-      chartVendita = createChart(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
+      chartRichiesta = creaGrafico(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
+      chartVendita = creaGrafico(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
     }
-    chartRichiesta.data.datasets[0].data = datiDomanda;
+
+    chartRichiesta.data.datasets[0].data = datiRichiesta;
     chartRichiesta.update();
 
-    chartVendita.data.datasets[0].data = datiOfferta;
+    chartVendita.data.datasets[0].data = datiVendita;
     chartVendita.update();
 
-    // Tabella con prezzo totale (prezzo singolo * buoni totali)
-    const tbody = document.querySelector("#allEntriesTable tbody");
-    tbody.innerHTML = "";
-
+    // Tabella dati
+    const tbody = document.querySelector('#tableEntries tbody');
+    tbody.innerHTML = '';
     if (docs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5">Nessun dato disponibile</td></tr>`;
       return;
     }
 
     docs.forEach(d => {
-      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
-      const dayOnly = dateObj.toISOString().split('T')[0].split('-').reverse().join('/'); // gg/mm/aaaa
+      let dataObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      const dataFormattata = dataObj.toLocaleDateString('it-IT');
+
       const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
       const blocchetti = d.quantity;
       const buoniTotali = blocchetti * 10;
-      // prezzo totale = prezzo per singolo buono * buoni totali
-      const prezzoTotale = (d.price !== undefined && !isNaN(d.price)) ? (d.price * buoniTotali).toFixed(2) : "-";
+      const prezzoSingolo = Number(d.price);
+      const prezzoTotale = (prezzoSingolo * buoniTotali).toFixed(2);
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${dayOnly}</td>
+        <td>${dataFormattata}</td>
         <td>${tipo}</td>
         <td>${blocchetti}</td>
         <td>${buoniTotali}</td>
-        <td>${prezzoTotale}</td>
+        <td>€ ${prezzoTotale}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  loadData();
+  caricaDati();
 </script>
 
 </body>
 </html>
-
