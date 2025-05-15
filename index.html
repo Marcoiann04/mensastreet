@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/build/sha256.min.js"></script>
+
   <meta charset="UTF-8" />
   <title>Mercato Buoni Mensa</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -79,18 +81,19 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  const password = "ciao";
+  const passwordHash = "3a9b7f8e4d3f5419b9dffdf8e6b8b8724ec0b736f3e92c18e1bb2c9871783e2e";
 
-  function checkPassword() {
-    const input = document.getElementById("passwordInput").value;
-    if (input === password) {
-      document.getElementById("admin").style.display = "block";
-      document.getElementById("login").style.display = "none";
-      loadTable();
-    } else {
-      alert("Password errata");
-    }
+function checkPassword() {
+  const input = document.getElementById("passwordInput").value;
+  const inputHash = sha256(input);
+  if (inputHash === passwordHash) {
+    document.getElementById("admin").style.display = "block";
+    document.getElementById("login").style.display = "none";
+    loadTable();
+  } else {
+    alert("Password errata");
   }
+}
 
   async function addTransaction() {
     const type = document.getElementById("type").value;
