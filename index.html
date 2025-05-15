@@ -170,33 +170,86 @@
   }
 
   // ChartJS
-  const salesChart = new Chart(document.getElementById("salesChart"), {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Prezzo medio vendita (€ per buono)",
-        borderColor: "green",
-        data: [],
-        fill: false,
-        tension: 0.1
-      }]
+const salesChart = new Chart(document.getElementById("salesChart"), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Prezzo medio vendita (€ per buono)",
+      borderColor: "green",
+      data: [],
+      fill: false,
+      tension: 0.1,
+      pointRadius: 5
+    }]
+  },
+  options: {
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'day',
+          tooltipFormat: 'dd/MM/yyyy HH:mm',
+          displayFormats: {
+            day: 'dd/MM/yyyy'
+          }
+        },
+        title: {
+          display: true,
+          text: 'Data'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Prezzo (€ per buono)'
+        },
+        beginAtZero: true
+      }
     }
-  });
+  }
+});
 
-  const demandChart = new Chart(document.getElementById("demandChart"), {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: "Prezzo medio richiesta (€ per buono)",
-        borderColor: "red",
-        data: [],
-        fill: false,
-        tension: 0.1
-      }]
+const demandChart = new Chart(document.getElementById("demandChart"), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [{
+      label: "Prezzo medio richiesta (€ per buono)",
+      borderColor: "red",
+      data: [],
+      fill: false,
+      tension: 0.1,
+      pointRadius: 5
+    }]
+  },
+  options: {
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'day',
+          tooltipFormat: 'dd/MM/yyyy HH:mm',
+          displayFormats: {
+            day: 'dd/MM/yyyy'
+          }
+        },
+        title: {
+          display: true,
+          text: 'Data'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Prezzo (€ per buono)'
+        },
+        beginAtZero: true
+      }
     }
-  });
+  }
+});
+
 
   loadData();
 </script>
