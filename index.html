@@ -114,7 +114,7 @@
 
     snapshot.forEach(doc => {
       const data = doc.data();
-      const date = new Date(data.timestamp.seconds * 1000).toLocaleDateString();
+      const date = new Date(data.timestamp.seconds * 1000).toLocaleString();
       if (!labels.includes(date)) labels.push(date);
       if (data.type === "vendita") sales.push({ x: date, y: data.unitPrice });
       if (data.type === "richiesta") demand.push({ x: date, y: data.unitPrice });
