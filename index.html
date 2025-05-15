@@ -115,10 +115,11 @@
         <th>Tipo</th>
         <th>Blocchetti (x10 buoni)</th>
         <th>Buoni Totali</th>
+        <th>Prezzo (€)</th>
       </tr>
     </thead>
     <tbody>
-      <tr><td colspan="4">Caricamento dati...</td></tr>
+      <tr><td colspan="5">Caricamento dati...</td></tr>
     </tbody>
   </table>
 
@@ -136,39 +137,21 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Funzione per raggruppare dati per giorno e tipo (vendita o richiesta)
-  function groupByDayAndType(data) {
-    const map = new Map();
-    data.forEach(d => {
-      const date = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
-      // Prendi solo data senza orario (yyyy-mm-dd)
-      const day = date.toISOString().split('T')[0];
-
-      if (!map.has(day)) map.set(day, { vendita: 0, richiesta: 0 });
-      const entry = map.get(day);
-      entry[d.type] += d.quantity * 10; // blocchetti * 10 buoni
-    });
-    return map;
-  }
-
-  // Setup ChartJS per grafici belli
+  // Setup ChartJS per grafici
   let chartRichiesta, chartVendita;
 
   function createChart(ctx, label, color) {
     return new Chart(ctx, {
-      type: 'line',
+      type: 'scatter',
       data: {
-        labels: [],
         datasets: [{
           label: label,
           data: [],
           borderColor: color,
-          backgroundColor: color + "55",
-          fill: true,
-          tension: 0.25,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          borderWidth: 3,
+          backgroundColor: color + "aa",
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: false,
         }]
       },
       options: {
@@ -184,8 +167,17 @@
                 day: 'dd/MM'
               }
             },
+            title: {
+              display: true,
+              text: 'Data'
+            },
             grid: {
               color: '#eee'
+            },
+            ticks: {
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 10
             }
           },
           y: {
@@ -205,14 +197,13 @@
             labels: { font: { size: 14 } }
           },
           tooltip: {
-            mode: 'index',
-            intersect: false,
+            callbacks: {
+              label: ctx => {
+                const p = ctx.raw;
+                return `Buoni: ${p.y}, Data: ${new Date(p.x).toLocaleDateString()}`;
+              }
+            }
           }
-        },
-        interaction: {
-          mode: 'nearest',
-          axis: 'x',
-          intersect: false
         }
       }
     });
@@ -222,19 +213,20 @@
     const snapshot = await db.collection("transactions").orderBy("timestamp", "asc").get();
     const docs = snapshot.docs.map(doc => doc.data());
 
-    // Raggruppa per giorno per i grafici
-    const grouped = groupByDayAndType(docs);
-
-    // Ordina le date per i grafici
-    const dates = Array.from(grouped.keys()).sort();
-
-    // Prepara dati per i grafici
+    // Filtra dati per tipo per i grafici
     const datiDomanda = [];
     const datiOfferta = [];
-    dates.forEach(day => {
-      const entry = grouped.get(day);
-      datiDomanda.push({ x: day, y: entry.richiesta || 0 });
-      datiOfferta.push({ x: day, y: entry.vendita || 0 });
+
+    docs.forEach(d => {
+      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      // Usa data completa (timestamp in ms)
+      const x = dateObj.getTime();
+      const y = d.quantity * 10;
+      if (d.type === 'richiesta') {
+        datiDomanda.push({x, y});
+      } else if (d.type === 'vendita') {
+        datiOfferta.push({x, y});
+      }
     });
 
     // Crea o aggiorna grafici
@@ -242,11 +234,9 @@
       chartRichiesta = createChart(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
       chartVendita = createChart(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
     }
-    chartRichiesta.data.labels = dates;
     chartRichiesta.data.datasets[0].data = datiDomanda;
     chartRichiesta.update();
 
-    chartVendita.data.labels = dates;
     chartVendita.data.datasets[0].data = datiOfferta;
     chartVendita.update();
 
@@ -255,7 +245,7 @@
     tbody.innerHTML = "";
 
     if (docs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4">Nessun dato disponibile</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5">Nessun dato disponibile</td></tr>`;
       return;
     }
 
@@ -265,12 +255,14 @@
       const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
       const blocchetti = d.quantity;
       const buoniTotali = blocchetti * 10;
+      const prezzo = d.price !== undefined ? Number(d.price).toFixed(2) : "-";
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${dayOnly}</td>
         <td>${tipo}</td>
         <td>${blocchetti}</td>
         <td>${buoniTotali}</td>
+        <td>${prezzo}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -281,4 +273,3 @@
 
 </body>
 </html>
-
