@@ -115,7 +115,7 @@
         <th>Tipo</th>
         <th>Blocchetti (x10 buoni)</th>
         <th>Buoni Totali</th>
-        <th>Prezzo (€)</th>
+        <th>Prezzo totale (€)</th>
       </tr>
     </thead>
     <tbody>
@@ -148,12 +148,11 @@
           label: label,
           data: [],
           borderColor: color,
-          backgroundColor: color + "aa",
-        showLine: true,
-pointRadius: 3,
-pointHoverRadius: 6,
-tension: 0.3,  // per una linea più morbida
-
+          backgroundColor: color + "44",
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          showLine: true,
+          tension: 0.3,
         }]
       },
       options: {
@@ -183,11 +182,10 @@ tension: 0.3,  // per una linea più morbida
             }
           },
           y: {
-            beginAtZero: true,
+            beginAtZero: false,
             title: {
               display: true,
               text: 'Prezzo per buono (€)'
-
             },
             grid: {
               color: '#eee'
@@ -204,7 +202,6 @@ tension: 0.3,  // per una linea più morbida
               label: ctx => {
                 const p = ctx.raw;
                 return `Prezzo: €${p.y.toFixed(2)}, Data: ${new Date(p.x).toLocaleDateString()}`;
-
               }
             }
           }
@@ -217,15 +214,13 @@ tension: 0.3,  // per una linea più morbida
     const snapshot = await db.collection("transactions").orderBy("timestamp", "asc").get();
     const docs = snapshot.docs.map(doc => doc.data());
 
-    // Filtra dati per tipo per i grafici
     const datiDomanda = [];
     const datiOfferta = [];
 
     docs.forEach(d => {
       const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
-      // Usa data completa (timestamp in ms)
       const x = dateObj.getTime();
-    const y = d.price; // prezzo per singolo buono
+      const y = d.price; // prezzo per singolo buono
 
       if (d.type === 'richiesta') {
         datiDomanda.push({x, y});
@@ -234,7 +229,6 @@ tension: 0.3,  // per una linea più morbida
       }
     });
 
-    // Crea o aggiorna grafici
     if (!chartRichiesta) {
       chartRichiesta = createChart(document.getElementById('chartRichiesta').getContext('2d'), 'Domanda', '#007bff');
       chartVendita = createChart(document.getElementById('chartVendita').getContext('2d'), 'Offerta', '#28a745');
@@ -245,7 +239,7 @@ tension: 0.3,  // per una linea più morbida
     chartVendita.data.datasets[0].data = datiOfferta;
     chartVendita.update();
 
-    // Tabella tutti i singoli inserimenti (data senza ora)
+    // Tabella con prezzo totale (prezzo singolo * buoni totali)
     const tbody = document.querySelector("#allEntriesTable tbody");
     tbody.innerHTML = "";
 
@@ -260,7 +254,8 @@ tension: 0.3,  // per una linea più morbida
       const tipo = d.type === 'vendita' ? 'Offerta' : d.type === 'richiesta' ? 'Domanda' : d.type;
       const blocchetti = d.quantity;
       const buoniTotali = blocchetti * 10;
-      const prezzoTotale = d.price !== undefined ? (d.price * buoniTotali).toFixed(2) : "-";
+      // prezzo totale = prezzo per singolo buono * buoni totali
+      const prezzoTotale = (d.price !== undefined && !isNaN(d.price)) ? (d.price * buoniTotali).toFixed(2) : "-";
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -269,7 +264,6 @@ tension: 0.3,  // per una linea più morbida
         <td>${blocchetti}</td>
         <td>${buoniTotali}</td>
         <td>${prezzoTotale}</td>
-
       `;
       tbody.appendChild(tr);
     });
@@ -280,3 +274,4 @@ tension: 0.3,  // per una linea più morbida
 
 </body>
 </html>
+
