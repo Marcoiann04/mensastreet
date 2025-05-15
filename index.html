@@ -1,37 +1,42 @@
-
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Mercato Buoni Mensa</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
-    h1 { text-align: center; }
-    #charts-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; }
-    canvas { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    #admin { max-width: 600px; margin: 40px auto; display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    h1 { text-align: center; margin-bottom: 30px; }
+    #charts-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; margin-bottom: 40px; }
+    canvas { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); max-width: 500px; }
+    #admin { max-width: 600px; margin: 0 auto; display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
     label, input, select { display: block; margin: 10px 0; width: 100%; }
-    input[type="password"] { width: 200px; }
-    button { margin-top: 10px; padding: 10px; cursor: pointer; }
-    #login { text-align: center; margin-top: 40px; }
+    input[type="password"] { width: 200px; padding: 8px; }
+    input[type="number"] { padding: 8px; }
+    button { margin-top: 10px; padding: 10px; cursor: pointer; background: #007bff; border: none; color: white; border-radius: 4px; }
+    button:hover { background: #0056b3; }
+    #login { text-align: center; margin-bottom: 40px; }
     table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #007bff; color: white; }
+    #transactionTable button { background: #dc3545; }
+    #transactionTable button:hover { background: #a71d2a; }
   </style>
 </head>
 <body>
 
 <h1>📈 Mercato Buoni Mensa</h1>
+
 <div id="charts-container">
-  <canvas id="salesChart" width="400" height="250"></canvas>
-  <canvas id="demandChart" width="400" height="250"></canvas>
+  <canvas id="salesChart" width="500" height="300"></canvas>
+  <canvas id="demandChart" width="500" height="300"></canvas>
 </div>
 
 <div id="login">
-  <input type="password" id="passwordInput" placeholder="Password">
+  <input type="password" id="passwordInput" placeholder="Password" />
   <button onclick="checkPassword()">Accedi area riservata</button>
 </div>
 
@@ -43,8 +48,12 @@
       <option value="richiesta">Richiesta</option>
     </select>
   </label>
-  <label>Quantità blocchetti: <input type="number" id="quantity"></label>
-  <label>Prezzo: <input type="number" id="price"></label>
+  <label>Quantità blocchetti:
+    <input type="number" id="quantity" min="1" />
+  </label>
+  <label>Prezzo:
+    <input type="number" id="price" min="0.01" step="0.01" />
+  </label>
   <label>Tipo prezzo:
     <select id="priceType">
       <option value="totale">Totale</option>
@@ -52,24 +61,26 @@
     </select>
   </label>
   <button onclick="addTransaction()">Inserisci</button>
+
   <table id="transactionTable"></table>
 </div>
 
 <script>
-  // 🔧 CONFIGURAZIONE FIREBASE - SOSTITUISCI QUI
+  // FIREBASE CONFIGURA QUI
   const firebaseConfig = {
- apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
-  authDomain: "mensa-ea014.firebaseapp.com",
-  projectId: "mensa-ea014",
-  storageBucket: "mensa-ea014.firebasestorage.app",
-  messagingSenderId: "341027510429",
-  appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
-  measurementId: "G-9B5YYE6CK2"
+    apiKey: "AIzaSyDmYmIt5jDXMug_OXH0xPP2vyLsy02Alk4",
+    authDomain: "mensa-ea014.firebaseapp.com",
+    projectId: "mensa-ea014",
+    storageBucket: "mensa-ea014.appspot.com",
+    messagingSenderId: "341027510429",
+    appId: "1:341027510429:web:3d51e97b08ee7d251a9c74",
+    measurementId: "G-9B5YYE6CK2"
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
   const password = "ciao";
+
   function checkPassword() {
     const input = document.getElementById("passwordInput").value;
     if (input === password) {
@@ -87,13 +98,17 @@
     const price = parseFloat(document.getElementById("price").value);
     const priceType = document.getElementById("priceType").value;
 
-    if (!quantity || !price) return alert("Inserisci tutti i campi");
+    if (!quantity || !price) {
+      alert("Inserisci tutti i campi");
+      return;
+    }
 
+    // Calcolo unitario per buono (1 blocchetto = 10 buoni)
     let unitPrice;
     if (priceType === "totale") {
-      unitPrice = (price / quantity) / 10; // 1 blocchetto = 10 buoni
+      unitPrice = price / (quantity * 10);
     } else {
-      unitPrice = price / 10; // parziale per blocchetto
+      unitPrice = price / 10;
     }
 
     await db.collection("transactions").add({
@@ -108,57 +123,56 @@
     loadTable();
   }
 
- async function loadData() {
-  const snapshot = await db.collection("transactions").orderBy("timestamp").get();
-  const sales = [];
-  const demand = [];
-  const labelsSet = new Set();
+  async function loadData() {
+    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
 
-  snapshot.forEach((doc, index) => {
-    const data = doc.data();
-    // Trasforma timestamp Firestore in oggetto Date
-    const ts = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+    // Prepariamo dati per i grafici
+    const sales = [];
+    const demand = [];
 
-    // Prendi solo la data (yyyy-mm-dd) per la label
-    const dayString = ts.toISOString().split('T')[0];
-    labelsSet.add(dayString);
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const dateObj = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+      if (data.type === "vendita") sales.push({ x: dateObj, y: data.unitPrice });
+      if (data.type === "richiesta") demand.push({ x: dateObj, y: data.unitPrice });
+    });
 
-    // Crea una data con jitter orario per non sovrapporre punti
-    const baseDate = new Date(dayString);
-    const jitterHours = (index % 24) + 0.5; // es: 0.5h, 1.5h, 2.5h, ...
-    const jitterDate = new Date(baseDate.getTime() + jitterHours * 3600 * 1000);
+    // Aggiorna dati grafico vendita
+    salesChart.data.datasets[0].data = sales;
+    salesChart.update();
 
-    // Prepara punto dati con x=jitterDate (Date) e y=unitPrice
-    const point = { x: jitterDate, y: data.unitPrice };
-
-    if (data.type === "vendita") sales.push(point);
-    if (data.type === "richiesta") demand.push(point);
-  });
-
-  const labels = Array.from(labelsSet);
-
-  salesChart.data.labels = labels;
-  salesChart.data.datasets[0].data = sales;
-  salesChart.update();
-
-  demandChart.data.labels = labels;
-  demandChart.data.datasets[0].data = demand;
-  demandChart.update();
-}
-
+    // Aggiorna dati grafico richiesta
+    demandChart.data.datasets[0].data = demand;
+    demandChart.update();
+  }
 
   async function loadTable() {
     const table = document.getElementById("transactionTable");
-    table.innerHTML = "<tr><th>Tipo</th><th>Q.tà</th><th>Prezzo</th><th>Azioni</th></tr>";
-    const snapshot = await db.collection("transactions").orderBy("timestamp").get();
+    table.innerHTML = `<tr>
+      <th>Tipo</th>
+      <th>Q.tà blocchetti</th>
+      <th>Prezzo totale (€)</th>
+      <th>Prezzo per buono (€)</th>
+      <th>Data inserimento</th>
+      <th>Azioni</th>
+    </tr>`;
+
+    const snapshot = await db.collection("transactions").orderBy("timestamp", "desc").get();
+
     snapshot.forEach(doc => {
       const d = doc.data();
+      const dateObj = d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp);
+      const dateStr = dateObj.toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${d.type}</td>
         <td>${d.quantity}</td>
-        <td>€ ${d.totalPrice}</td>
-        <td><button onclick="deleteTransaction('${doc.id}')">Elimina</button></td>`;
+        <td>€ ${d.totalPrice.toFixed(2)}</td>
+        <td>€ ${d.unitPrice.toFixed(2)}</td>
+        <td>${dateStr}</td>
+        <td><button onclick="deleteTransaction('${doc.id}')">Elimina</button></td>
+      `;
       table.appendChild(row);
     });
   }
@@ -169,90 +183,101 @@
     loadTable();
   }
 
-  // ChartJS
-const salesChart = new Chart(document.getElementById("salesChart"), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: "Prezzo medio vendita (€ per buono)",
-      borderColor: "green",
-      data: [],
-      fill: false,
-      tension: 0.1,
-      pointRadius: 5
-    }]
-  },
-  options: {
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: 'day',
-          tooltipFormat: 'dd/MM/yyyy HH:mm',
-          displayFormats: {
-            day: 'dd/MM/yyyy'
-          }
-        },
-        title: {
-          display: true,
-          text: 'Data'
-        }
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Prezzo (€ per buono)'
-        },
-        beginAtZero: true
-      }
-    }
-  }
+  // Configurazione Chart.js con asse tempo
+  const salesChart = new Chart(document.getElementById("salesChart"), {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: "Prezzo medio vendita (€ per buono)",
+        borderColor: "green",
+        backgroundColor: "rgba(0,128,0,0.1)",
+        data: [],
+        fill: true,
+        tension: 0.2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {x: {
+type: 'time',
+time: {
+unit: 'day',
+tooltipFormat: 'dd/MM/yyyy HH:mm',
+displayFormats: {
+day: 'dd/MM/yyyy'
+}
+},
+title: {
+display: true,
+text: 'Data'
+},
+ticks: { maxRotation: 0, autoSkipPadding: 15 }
+},
+y: {
+beginAtZero: true,
+title: {
+display: true,
+text: 'Prezzo (€ per buono)'
+}
+}
+},
+plugins: {
+legend: { display: true }
+}
+}
 });
 
 const demandChart = new Chart(document.getElementById("demandChart"), {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: "Prezzo medio richiesta (€ per buono)",
-      borderColor: "red",
-      data: [],
-      fill: false,
-      tension: 0.1,
-      pointRadius: 5
-    }]
-  },
-  options: {
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: 'day',
-          tooltipFormat: 'dd/MM/yyyy HH:mm',
-          displayFormats: {
-            day: 'dd/MM/yyyy'
-          }
-        },
-        title: {
-          display: true,
-          text: 'Data'
-        }
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Prezzo (€ per buono)'
-        },
-        beginAtZero: true
-      }
-    }
-  }
+type: 'line',
+data: {
+datasets: [{
+label: "Prezzo medio richiesta (€ per buono)",
+borderColor: "red",
+backgroundColor: "rgba(255,0,0,0.1)",
+data: [],
+fill: true,
+tension: 0.2,
+pointRadius: 5,
+pointHoverRadius: 7,
+}]
+},
+options: {
+responsive: true,
+scales: {
+x: {
+type: 'time',
+time: {
+unit: 'day',
+tooltipFormat: 'dd/MM/yyyy HH:mm',
+displayFormats: {
+day: 'dd/MM/yyyy'
+}
+},
+title: {
+display: true,
+text: 'Data'
+},
+ticks: { maxRotation: 0, autoSkipPadding: 15 }
+},
+y: {
+beginAtZero: true,
+title: {
+display: true,
+text: 'Prezzo (€ per buono)'
+}
+}
+},
+plugins: {
+legend: { display: true }
+}
+}
 });
 
+// Carica dati iniziali
+loadData();
 
-  loadData();
-</script>
+</script> </body> </html>
+       
 
-</body>
-</html>
